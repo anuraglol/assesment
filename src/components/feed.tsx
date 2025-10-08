@@ -3,7 +3,6 @@
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { FC, useEffect, useState } from "react";
 
-// define TS interface based on websocket data
 interface Entry {
   name: string;
   symbol: string;
@@ -39,7 +38,6 @@ export const Feed: FC = () => {
     retry: false,
   });
 
-  // websocket subscription hook
   const useQuerySubscription = () => {
     useEffect(() => {
       const websocket = new WebSocket("ws://localhost:8080/connect");
@@ -77,25 +75,33 @@ export const Feed: FC = () => {
     }, [queryClient]);
   };
 
-  // call subscription
   useQuerySubscription();
 
   return (
     <div className="w-full flex flex-col gap-6 items-center justify-center">
       <p>WebSocket status: {state}</p>
-      <div className="flex flex-col items-center gap-4 p-4 border-[1.5] border-border rounded-sm bg-background/80">
+      <div className="flex flex-col items-center gap-4">
         {data?.entries.map((entry, index) => (
           <div
             key={`${entry.mint}-${index}`}
-            className="w-full flex flex-col sm:flex-row items-center gap-4 max-w-xl"
+            className="flex flex-row items-center gap-3"
           >
-            <div className="flex flex-col items-center sm:items-start">
-              <h2 className="text-base font-medium">
-                {entry.name} | {entry.symbol}
-              </h2>
-              <p className="text-xs text-gray-400 break-all">
-                Mint: {entry.mint}
-              </p>
+            {">"}
+            <div className="w-full flex flex-col sm:flex-row items-center gap-4 max-w-xl">
+              <div className="flex flex-col items-center sm:items-start">
+                <h2 className="text-[15px] font-medium">
+                  {entry.name} | {entry.symbol}
+                </h2>
+                <p className="text-xs break-all">Mint: {entry.mint}</p>
+                <a
+                  href={entry.uri}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-xs hover:underline break-all"
+                >
+                  Metadata URI: {entry.uri}
+                </a>
+              </div>
             </div>
           </div>
         ))}

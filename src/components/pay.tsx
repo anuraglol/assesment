@@ -1,31 +1,32 @@
 "use client";
 
-import { zodResolver } from "@hookform/resolvers/zod";
+import { useState, useEffect } from "react";
+import axios from "axios";
 import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { PublicKey, Transaction, SystemProgram } from "@solana/web3.js";
 import { useConnection, useWallet } from "@solana/wallet-adapter-react";
-
-import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import {
   Form,
-  FormControl,
   FormField,
   FormItem,
   FormLabel,
-  FormMessage,
+  FormControl,
   FormDescription,
+  FormMessage,
 } from "@/components/ui/form";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
 import { WalletMultiButton } from "@solana/wallet-adapter-react-ui";
+import { toast } from "sonner";
 
 const transferSchema = z.object({
   amount: z
@@ -46,6 +47,8 @@ type TransferFormValues = z.infer<typeof transferSchema>;
 export function TransferForm({ className }: { className?: string }) {
   const { publicKey, sendTransaction, connected } = useWallet();
   const { connection } = useConnection();
+  const [solToUsdcRate, setSolToUsdcRate] = useState<number | null>(null);
+  const [showUsdc, setShowUsdc] = useState(false);
 
   const form = useForm<TransferFormValues>({
     resolver: zodResolver(transferSchema),
@@ -55,10 +58,26 @@ export function TransferForm({ className }: { className?: string }) {
     },
   });
 
+  useEffect(() => {
+    const fetchSolToUsdcRate = async () => {
+      try {
+        const response = await axios.get(
+          "https://api.coingecko.com/api/v3/simple/price?ids=solana&vs_currencies=usd",
+        );
+        setSolToUsdcRate(response.data.solana.usd);
+      } catch (error) {
+        console.error("Error fetching SOL to USDC rate:", error);
+      }
+    };
+
+    fetchSolToUsdcRate();
+  }, []);
+
   const onSubmit = async (values: TransferFormValues) => {
     if (!connected || !publicKey) return;
 
     try {
+      toast("Processing transaction...");
       const recipient = new PublicKey(values.wallet);
       const lamports = Math.floor(values.amount * 1_000_000_000);
 
@@ -73,19 +92,16 @@ export function TransferForm({ className }: { className?: string }) {
       const signature = await sendTransaction(transaction, connection);
       await connection.confirmTransaction(signature, "confirmed");
 
+      toast.success("Transaction successful!");
       form.reset();
     } catch (err: any) {
+      toast.error(`Transaction failed: ${err.message}`);
       console.error(err);
     }
   };
 
   return (
-    <div
-      className={cn(
-        "flex flex-col gap-6 items-center justify-center",
-        className,
-      )}
-    >
+    <div className={className}>
       <Card className="w-full max-w-md">
         <CardHeader>
           <CardTitle>Send SOL</CardTitle>
@@ -147,6 +163,26 @@ export function TransferForm({ className }: { className?: string }) {
                     </FormItem>
                   )}
                 />
+
+                <div className="flex items-center gap-2">
+                  <input
+                    type="checkbox"
+                    id="showUsdc"
+                    checked={showUsdc}
+                    onChange={() => setShowUsdc(!showUsdc)}
+                    className="h-4 w-4"
+                  />
+                  <label htmlFor="showUsdc" className="text-sm">
+                    Show equivalent in USDC
+                  </label>
+                </div>
+
+                {showUsdc && solToUsdcRate && (
+                  <div className="mt-2 text-sm">
+                    Equivalent:{" "}
+                    {(form.watch("amount") * solToUsdcRate).toFixed(2)} USDC
+                  </div>
+                )}
 
                 <Button type="submit" className="mt-2">
                   Send SOL
